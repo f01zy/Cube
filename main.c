@@ -1,5 +1,6 @@
 #include <math.h>
 #include <ncurses.h>
+#include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
@@ -13,14 +14,15 @@ struct Vec3 {
   float z;
 };
 
+int cols, rows;
 float A, B, C;
 const char ch = '#';
-const float far = 1e9f;
-const float face = 35.0f;
-const float mid = face / 2.0f;
+const float far = -1e9f;
+const float edge = 35.0f;
+const float mid = edge / 2.0f;
 
-float buffer[MAX_ROWS][MAX_COLS];
-struct Vec3 camera = {0, 0, 1};
+float depth_buffer[MAX_ROWS][MAX_COLS];
+struct Vec3 camera = {0, 0, -1};
 struct Vec3 vertices[8];
 struct Vec3 normales[6];
 struct Vec3 base_vertices[8] = {{-mid, -mid, mid}, {-mid, -mid, -mid}, {mid, -mid, -mid}, {mid, -mid, mid},
@@ -44,28 +46,27 @@ void rotate_z(struct Vec3 *vertex) {
   vertex->y = verticesX * sin(C) + verticesY * cos(C);
 }
 
+float get_depth(struct Vec3 normal, int x, int y) { return -(normal.x * x + normal.y * y + mid) / normal.z; }
 int dot_vec3(struct Vec3 a, struct Vec3 b) { return a.x * b.x + a.y * b.y + a.z * b.z; }
 struct Vec3 subtract_vec3(struct Vec3 a, struct Vec3 b) { return (struct Vec3){a.x - b.x, a.y - b.y, a.z - b.z}; }
 struct Vec3 cross_vec3(struct Vec3 a, struct Vec3 b) { return (struct Vec3){a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x}; }
-struct Vec3 get_normale(struct Vec3 a, struct Vec3 b, struct Vec3 c) { return cross_vec3(subtract_vec3(b, a), subtract_vec3(c, a)); }
+struct Vec3 get_normal(struct Vec3 a, struct Vec3 b, struct Vec3 c) { return cross_vec3(subtract_vec3(b, a), subtract_vec3(c, a)); }
 
 void configure_normales() {
-  normales[0] = get_normale(vertices[2], vertices[1], vertices[0]);
-  normales[1] = get_normale(vertices[4], vertices[5], vertices[6]);
-  normales[2] = get_normale(vertices[4], vertices[0], vertices[1]);
-  normales[3] = get_normale(vertices[5], vertices[1], vertices[2]);
-  normales[4] = get_normale(vertices[2], vertices[3], vertices[7]);
-  normales[5] = get_normale(vertices[3], vertices[0], vertices[4]);
+  normales[0] = get_normal(vertices[2], vertices[1], vertices[0]);
+  normales[1] = get_normal(vertices[4], vertices[5], vertices[6]);
+  normales[2] = get_normal(vertices[4], vertices[0], vertices[1]);
+  normales[3] = get_normal(vertices[5], vertices[1], vertices[2]);
+  normales[4] = get_normal(vertices[2], vertices[3], vertices[7]);
+  normales[5] = get_normal(vertices[3], vertices[0], vertices[4]);
 }
 
 void update_depth_buffer(int x, int y, float z) {
-  float curr = buffer[y][x];
-  buffer[y][x] = curr > z ? z : curr;
+  float curr = depth_buffer[y][x];
+  depth_buffer[y][x] = curr > z ? curr : z;
 }
 
 void draw_line(struct Vec3 a, struct Vec3 b) {
-  int cols, rows;
-  getmaxyx(stdscr, rows, cols);
   int az = a.z;
   int ax = cols / 2 + (int)a.x;
   int ay = rows / 2 + (int)a.y / 2;
@@ -96,44 +97,36 @@ void draw_line(struct Vec3 a, struct Vec3 b) {
 }
 
 void draw_edges() {
-  int top = dot_vec3(camera, normales[0]);
-  int bottom = dot_vec3(camera, normales[1]);
-  int left = dot_vec3(camera, normales[2]);
-  int behind = dot_vec3(camera, normales[3]);
-  int right = dot_vec3(camera, normales[4]);
-  int front = dot_vec3(camera, normales[5]);
-
-  if (top < 0) {
+  if (dot_vec3(camera, normales[0]) > 0) {
     draw_line(vertices[0], vertices[1]);
     draw_line(vertices[1], vertices[2]);
     draw_line(vertices[2], vertices[3]);
     draw_line(vertices[3], vertices[0]);
-  }
-  if (bottom < 0) {
+  } else {
     draw_line(vertices[4], vertices[5]);
     draw_line(vertices[5], vertices[6]);
     draw_line(vertices[6], vertices[7]);
     draw_line(vertices[7], vertices[4]);
   }
-  if (left < 0) {
+
+  if (dot_vec3(camera, normales[2]) > 0) {
     draw_line(vertices[4], vertices[0]);
     draw_line(vertices[0], vertices[1]);
     draw_line(vertices[1], vertices[5]);
     draw_line(vertices[5], vertices[4]);
-  }
-  if (behind < 0) {
-    draw_line(vertices[5], vertices[1]);
-    draw_line(vertices[1], vertices[2]);
-    draw_line(vertices[2], vertices[6]);
-    draw_line(vertices[6], vertices[5]);
-  }
-  if (right < 0) {
+  } else {
     draw_line(vertices[7], vertices[3]);
     draw_line(vertices[3], vertices[2]);
     draw_line(vertices[2], vertices[6]);
     draw_line(vertices[6], vertices[7]);
   }
-  if (front < 0) {
+
+  if (dot_vec3(camera, normales[3]) > 0) {
+    draw_line(vertices[5], vertices[1]);
+    draw_line(vertices[1], vertices[2]);
+    draw_line(vertices[2], vertices[6]);
+    draw_line(vertices[6], vertices[5]);
+  } else {
     draw_line(vertices[0], vertices[3]);
     draw_line(vertices[3], vertices[7]);
     draw_line(vertices[7], vertices[4]);
@@ -141,12 +134,30 @@ void draw_edges() {
   }
 }
 
-void draw_faces() {}
+void draw_faces() {
+  // for (int i = 0; i < rows; i++) {
+  //   for (int j = 0; j < cols; j++) {
+  //     if (depth_buffer[i][j] != far) continue;
+  //     int points = 0;
+  //     if (i > 0 && depth_buffer[i - 1][j] != far) points++;
+  //     if (j > 0 && depth_buffer[i][j - 1] != far) points++;
+  //     if (points >= 2) {
+  //       update_depth_buffer(j, i, get_depth(normales[0], j, i));
+  //       update_depth_buffer(j, i, get_depth(normales[1], j, i));
+  //       update_depth_buffer(j, i, get_depth(normales[2], j, i));
+  //       update_depth_buffer(j, i, get_depth(normales[3], j, i));
+  //       update_depth_buffer(j, i, get_depth(normales[4], j, i));
+  //       update_depth_buffer(j, i, get_depth(normales[5], j, i));
+  //     }
+  //   }
+  // }
+}
 
 int main() {
   initscr();
   noecho();
   cbreak();
+  getmaxyx(stdscr, rows, cols);
 
   while (1) {
     memcpy(vertices, base_vertices, sizeof(vertices));
@@ -158,28 +169,34 @@ int main() {
 
     for (int i = 0; i < MAX_ROWS; i++) {
       for (int j = 0; j < MAX_COLS; j++) {
-        buffer[i][j] = far;
+        depth_buffer[i][j] = far;
       }
     }
 
     configure_normales();
     draw_edges();
-    int cols, rows;
-    getmaxyx(stdscr, rows, cols);
+    draw_faces();
+
     clear();
     mvprintw(0, 0, "rotation (radians)\n");
-    mvprintw(1, 0, "x: %.1f, y: %.1f, z: %.1f\n", A, B, C);
+    mvprintw(1, 0, "%.1f, %.1f, %.1f\n", A, B, C);
     for (int i = 0; i < rows; i++) {
       for (int j = 0; j < cols; j++) {
-        float depth = buffer[i][j];
-        if (depth != far) mvaddch(i, j, '#');
+        float depth = depth_buffer[i][j];
+        if (depth != far) {
+          char ch;
+          if (depth > 0) ch = '#';
+          if (depth < 0) ch = '.';
+          mvaddch(i, j, ch);
+        }
       }
     }
     refresh();
 
-    A += 0.1f;
-    B += 0.1f;
-    usleep(100000);
+    A += 0.05;
+    B += 0.05;
+    C += 0.01;
+    usleep(8000 * 3);
   }
   endwin();
 }
