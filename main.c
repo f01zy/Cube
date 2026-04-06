@@ -29,21 +29,21 @@ struct Vec3 base_vertices[8] = {{-mid, -mid, mid}, {-mid, -mid, -mid}, {mid, -mi
                                 {-mid, mid, mid},  {-mid, mid, -mid},  {mid, mid, -mid},  {mid, mid, mid}};
 
 void rotate_x(struct Vec3 *vertex) {
-  float verticesY = vertex->y, verticesZ = vertex->z;
-  vertex->y = verticesY * cos(A) - verticesZ * sin(A);
-  vertex->z = verticesY * sin(A) + verticesZ * cos(A);
+  float tempY = vertex->y, tempZ = vertex->z;
+  vertex->y = tempY * cos(A) - tempZ * sin(A);
+  vertex->z = tempY * sin(A) + tempZ * cos(A);
 }
 
 void rotate_y(struct Vec3 *vertex) {
-  float verticesX = vertex->x, verticesZ = vertex->z;
-  vertex->x = verticesX * cos(B) + verticesZ * sin(B);
-  vertex->z = verticesZ * cos(B) - verticesX * sin(B);
+  float tempX = vertex->x, tempZ = vertex->z;
+  vertex->x = tempX * cos(B) + tempZ * sin(B);
+  vertex->z = tempZ * cos(B) - tempX * sin(B);
 }
 
 void rotate_z(struct Vec3 *vertex) {
-  float verticesX = vertex->x, verticesY = vertex->y;
-  vertex->x = verticesX * cos(C) - verticesY * sin(C);
-  vertex->y = verticesX * sin(C) + verticesY * cos(C);
+  float tempX = vertex->x, tempY = vertex->y;
+  vertex->x = tempX * cos(C) - tempY * sin(C);
+  vertex->y = tempX * sin(C) + tempY * cos(C);
 }
 
 int dot_vec3(struct Vec3 a, struct Vec3 b) { return a.x * b.x + a.y * b.y + a.z * b.z; }
@@ -83,12 +83,12 @@ void draw_line(struct Vec3 a, struct Vec3 b) {
     update_depth_buffer(ax, ay, az);
     az += step;
     if (ax == bx && ay == by) break;
-    int vertices = error * 2;
-    if (vertices > -deltaY) {
+    int temp = error * 2;
+    if (temp > -deltaY) {
       error -= deltaY;
       ax += signX;
     }
-    if (vertices < deltaX) {
+    if (temp < deltaX) {
       error += deltaX;
       ay += signY;
     }
@@ -137,9 +137,9 @@ int main() {
   initscr();
   noecho();
   cbreak();
-  getmaxyx(stdscr, rows, cols);
 
   while (1) {
+    getmaxyx(stdscr, rows, cols);
     memcpy(vertices, base_vertices, sizeof(vertices));
     for (int i = 0; i < 8; i++) {
       rotate_x(&vertices[i]);
