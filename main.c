@@ -46,7 +46,6 @@ void rotate_z(struct Vec3 *vertex) {
   vertex->y = verticesX * sin(C) + verticesY * cos(C);
 }
 
-float get_depth(struct Vec3 normal, int x, int y) { return -(normal.x * x + normal.y * y + mid) / normal.z; }
 int dot_vec3(struct Vec3 a, struct Vec3 b) { return a.x * b.x + a.y * b.y + a.z * b.z; }
 struct Vec3 subtract_vec3(struct Vec3 a, struct Vec3 b) { return (struct Vec3){a.x - b.x, a.y - b.y, a.z - b.z}; }
 struct Vec3 cross_vec3(struct Vec3 a, struct Vec3 b) { return (struct Vec3){a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x}; }
@@ -134,25 +133,6 @@ void draw_edges() {
   }
 }
 
-void draw_faces() {
-  // for (int i = 0; i < rows; i++) {
-  //   for (int j = 0; j < cols; j++) {
-  //     if (depth_buffer[i][j] != far) continue;
-  //     int points = 0;
-  //     if (i > 0 && depth_buffer[i - 1][j] != far) points++;
-  //     if (j > 0 && depth_buffer[i][j - 1] != far) points++;
-  //     if (points >= 2) {
-  //       update_depth_buffer(j, i, get_depth(normales[0], j, i));
-  //       update_depth_buffer(j, i, get_depth(normales[1], j, i));
-  //       update_depth_buffer(j, i, get_depth(normales[2], j, i));
-  //       update_depth_buffer(j, i, get_depth(normales[3], j, i));
-  //       update_depth_buffer(j, i, get_depth(normales[4], j, i));
-  //       update_depth_buffer(j, i, get_depth(normales[5], j, i));
-  //     }
-  //   }
-  // }
-}
-
 int main() {
   initscr();
   noecho();
@@ -173,11 +153,9 @@ int main() {
       }
     }
 
+    clear();
     configure_normales();
     draw_edges();
-    draw_faces();
-
-    clear();
     mvprintw(0, 0, "rotation (radians)\n");
     mvprintw(1, 0, "%.1f, %.1f, %.1f\n", A, B, C);
     for (int i = 0; i < rows; i++) {
@@ -185,7 +163,7 @@ int main() {
         float depth = depth_buffer[i][j];
         if (depth != far) {
           char ch;
-          if (depth > 0) ch = '#';
+          if (depth > 0) ch = '@';
           if (depth < 0) ch = '.';
           mvaddch(i, j, ch);
         }
