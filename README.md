@@ -1,7 +1,7 @@
 # Preview
-<img src="assets/preview.gif" alt="preview" width="50%" />
+<img src="assets/preview.gif" alt="preview" width="60%" />
 
-# Compiling
+# Building
 ```bash
-gcc main.c -o main -lcurses -lm
+gcc main.c -o cube -lcurses -lm
 ```
